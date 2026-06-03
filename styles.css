@@ -1,0 +1,8 @@
+/* StackTube plugin — minimal styles */
+.stacktube-setting-info {
+  font-size: var(--font-ui-smaller);
+  color: var(--text-muted);
+  margin-top: 0.25rem;
+}
+.stacktube-test-result-ok { color: var(--text-success); }
+.stacktube-test-result-err { color: var(--text-error); }
