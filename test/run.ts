@@ -125,12 +125,14 @@ class FakeVault {
 	}
 }
 
-function makePlugin(baseUrl: string, vault: FakeVault) {
+function makePlugin(baseUrl: string, vault: FakeVault, initialRange: "all" | "30" | "90" = "all") {
 	const settings = {
 		apiKey: VALID_KEY,
 		baseUrl,
 		folder: "StackTube",
 		syncIntervalMin: 0,
+		syncOnStartup: false,
+		initialRange,
 		lastSyncedAt: "",
 	};
 	const saved: number[] = [];
@@ -167,7 +169,7 @@ async function main() {
 	} catch (e) {
 		badMsg = (e as Error).message;
 	}
-	ok(/유효하지 않/.test(badMsg), "bad key → 401 friendly");
+	ok(/Invalid API key/.test(badMsg), "bad key → 401 friendly");
 
 	// 2. full sync (페이지네이션 250 = 3 pages)
 	const vault = new FakeVault();
@@ -208,6 +210,12 @@ async function main() {
 	const sz = vault.files.size;
 	await engine2.sync();
 	ok(vault.files.size === sz, "resume from watermark → 0 new");
+
+	// 7. initial sync range — 데이터(2026-01-01경)는 30일 범위 밖 → 0건
+	const vault30 = new FakeVault();
+	const { plugin: p30 } = makePlugin(srv.url, vault30, "30");
+	await new SyncEngine(p30 as never).sync();
+	ok(vault30.files.size === 0, `initialRange=30d skips old notes (got ${vault30.files.size})`);
 
 	srv.close();
 

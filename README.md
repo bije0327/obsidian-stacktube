@@ -14,6 +14,8 @@ Sync your **YouTube knowledge notes** straight into your Obsidian vault.
 - Writes clean Markdown with **YAML frontmatter** (`video_id`, `channel`, `title`, `video_url`, `published_at`, `language`, `tags`) so Dataview, graph view, and search just work.
 - **No duplicates** — each video is written once, identified by `video_id`.
 - **Resumes** where it left off after a restart.
+- **Ribbon icon & status bar** — one‑click sync, at‑a‑glance last‑sync time and progress count.
+- **Sync on startup** (optional) and an **initial sync range** (all / last 90 / last 30 days) for the very first pull.
 - Your notes are ordinary `.md` files. Nothing is locked to this plugin.
 
 This plugin is a thin client: all analysis happens on the StackTube server. The plugin only fetches and writes files.

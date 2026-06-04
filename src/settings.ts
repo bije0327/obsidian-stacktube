@@ -1,17 +1,22 @@
 /*
- * 설정 모델 + 설정 탭 UI.
- * 비밀값(apiKey)은 data.json 에만 저장하고 로그/콘솔에 출력하지 않는다.
+ * Settings model + settings tab UI.
+ * The API key lives only in data.json and must never be logged.
+ * UI strings are English-first (community directory standard); ko/ja later.
  */
 import { App, PluginSettingTab, Setting, Notice } from "obsidian";
 import type StackTubePlugin from "./main";
 import { StackTubeApi, StackTubeApiError } from "./api";
 
+export type InitialRange = "all" | "30" | "90";
+
 export interface StackTubeSettings {
 	apiKey: string;
 	baseUrl: string;
 	folder: string;
-	syncIntervalMin: number; // 0 = 수동만
-	lastSyncedAt: string; // ISO8601, 마지막으로 받은 노트의 최대 created_at
+	syncIntervalMin: number; // 0 = manual only
+	syncOnStartup: boolean;
+	initialRange: InitialRange; // used only before the first successful sync
+	lastSyncedAt: string; // ISO8601 watermark (max created_at received)
 }
 
 export const DEFAULT_SETTINGS: StackTubeSettings = {
@@ -19,6 +24,8 @@ export const DEFAULT_SETTINGS: StackTubeSettings = {
 	baseUrl: "https://stacktube.io",
 	folder: "StackTube",
 	syncIntervalMin: 30,
+	syncOnStartup: true,
+	initialRange: "all",
 	lastSyncedAt: "",
 };
 
@@ -36,7 +43,7 @@ export class StackTubeSettingTab extends PluginSettingTab {
 
 		new Setting(containerEl)
 			.setName("API key")
-			.setDesc("StackTube 웹 설정 > Obsidian 에서 발급한 키를 붙여넣으세요.")
+			.setDesc("Paste the key from StackTube web → Settings → Obsidian.")
 			.addText((text) => {
 				text.inputEl.type = "password";
 				text
@@ -50,7 +57,7 @@ export class StackTubeSettingTab extends PluginSettingTab {
 
 		new Setting(containerEl)
 			.setName("Server URL")
-			.setDesc("StackTube 서버 주소. 보통 그대로 둡니다.")
+			.setDesc("StackTube server address. Usually leave as is.")
 			.addText((text) =>
 				text
 					.setPlaceholder("https://stacktube.io")
@@ -63,7 +70,7 @@ export class StackTubeSettingTab extends PluginSettingTab {
 
 		new Setting(containerEl)
 			.setName("Notes folder")
-			.setDesc("노트를 저장할 vault 내 폴더 경로.")
+			.setDesc("Vault folder where synced notes are written.")
 			.addText((text) =>
 				text
 					.setPlaceholder("StackTube")
@@ -76,7 +83,7 @@ export class StackTubeSettingTab extends PluginSettingTab {
 
 		new Setting(containerEl)
 			.setName("Sync interval (minutes)")
-			.setDesc("자동 동기화 주기. 0 이면 수동 동기화만 합니다.")
+			.setDesc("Automatic sync period. Set 0 for manual sync only.")
 			.addText((text) =>
 				text
 					.setPlaceholder("30")
@@ -90,42 +97,65 @@ export class StackTubeSettingTab extends PluginSettingTab {
 			);
 
 		new Setting(containerEl)
+			.setName("Sync on startup")
+			.setDesc("Run a sync shortly after Obsidian starts.")
+			.addToggle((toggle) =>
+				toggle.setValue(this.plugin.settings.syncOnStartup).onChange(async (value) => {
+					this.plugin.settings.syncOnStartup = value;
+					await this.plugin.saveSettings();
+				})
+			);
+
+		new Setting(containerEl)
+			.setName("Initial sync range")
+			.setDesc("Used only for the very first sync, before any sync has completed.")
+			.addDropdown((dd) =>
+				dd
+					.addOption("all", "All notes")
+					.addOption("90", "Last 90 days")
+					.addOption("30", "Last 30 days")
+					.setValue(this.plugin.settings.initialRange)
+					.onChange(async (value) => {
+						this.plugin.settings.initialRange = (value as InitialRange) || "all";
+						await this.plugin.saveSettings();
+					})
+			);
+
+		new Setting(containerEl)
 			.setName("Test connection")
-			.setDesc("키와 서버 주소가 올바른지 확인합니다.")
+			.setDesc("Verify your API key and server address.")
 			.addButton((btn) =>
 				btn
-					.setButtonText("연결 테스트")
+					.setButtonText("Test connection")
 					.setCta()
 					.onClick(async () => {
 						const { apiKey, baseUrl } = this.plugin.settings;
 						if (!apiKey) {
-							new Notice("API 키를 먼저 입력하세요.");
+							new Notice("Enter your API key first.");
 							return;
 						}
 						btn.setDisabled(true);
-						btn.setButtonText("확인 중...");
+						btn.setButtonText("Testing...");
 						try {
 							const api = new StackTubeApi(baseUrl, apiKey);
 							const res = await api.health();
 							if (res.ok) {
-								new Notice(`연결 성공${res.plan ? ` · 플랜: ${res.plan}` : ""}`);
+								new Notice(`Connected${res.plan ? ` · plan: ${res.plan}` : ""}`);
 							} else {
-								new Notice("연결 실패: 응답이 올바르지 않습니다.");
+								new Notice("Connection failed: unexpected response.");
 							}
 						} catch (e) {
-							const msg = e instanceof StackTubeApiError ? e.message : "연결 실패";
+							const msg = e instanceof StackTubeApiError ? e.message : "Connection failed.";
 							new Notice(msg);
 						} finally {
 							btn.setDisabled(false);
-							btn.setButtonText("연결 테스트");
+							btn.setButtonText("Test connection");
 						}
 					})
 			);
 
 		const last = this.plugin.settings.lastSyncedAt;
 		const info = containerEl.createEl("p", { cls: "stacktube-setting-info" });
-		info.setText(
-			last ? `마지막 동기화: ${new Date(last).toLocaleString()}` : "아직 동기화한 적 없음"
-		);
+		info.setText(last ? `Last sync: ${new Date(last).toLocaleString()}` : "Never synced yet.");
 	}
 }

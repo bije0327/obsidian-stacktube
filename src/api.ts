@@ -36,11 +36,11 @@ function normalizeBaseUrl(baseUrl: string): string {
 }
 
 function friendlyError(status: number): string {
-	if (status === 401) return "API 키가 유효하지 않습니다. 설정에서 키를 확인하세요.";
-	if (status === 429) return "요청이 너무 많습니다. 잠시 후 다시 시도하세요.";
-	if (status >= 500) return `서버 오류 (${status})`;
-	if (status === 0) return "네트워크 연결에 실패했습니다.";
-	return `요청 실패 (${status})`;
+	if (status === 401) return "Invalid API key. Check your key in the StackTube settings.";
+	if (status === 429) return "Too many requests. Try again in a moment.";
+	if (status >= 500) return `Server error (${status}).`;
+	if (status === 0) return "Network request failed.";
+	return `Request failed (${status}).`;
 }
 
 export class StackTubeApi {

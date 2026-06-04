@@ -1,12 +1,21 @@
 /*
- * 동기화 오케스트레이션.
- * lastSyncedAt(since)으로 새 노트만 받아 파일로 쓰고, 성공한 노트의
- * 최대 frozen_at 으로 lastSyncedAt 을 전진시킨다(부분 실패 시 되감기 방지).
+ * Sync orchestration.
+ * Fetches only new notes (since = lastSyncedAt watermark), writes them to the
+ * vault, and advances the watermark to the max frozen_at received per page
+ * (so an interrupted sync resumes without rewinding).
  */
 import { App, Notice } from "obsidian";
 import type StackTubePlugin from "./main";
 import { StackTubeApi, StackTubeApiError, StackTubeNote } from "./api";
 import { writeNote } from "./writer";
+
+function initialSince(range: string): string | undefined {
+	if (range === "30" || range === "90") {
+		const d = new Date(Date.now() - Number(range) * 24 * 60 * 60 * 1000);
+		return d.toISOString();
+	}
+	return undefined; // "all"
+}
 
 export class SyncEngine {
 	private plugin: StackTubePlugin;
@@ -22,16 +31,16 @@ export class SyncEngine {
 		return this.running;
 	}
 
-	/** 수동/자동 공통 진입점. 사용자에게 Notice 로 결과를 알린다. */
+	/** Manual/automatic entry point. Reports results via Notice + status bar. */
 	async sync(opts: { silent?: boolean } = {}): Promise<void> {
 		const { silent } = opts;
 		if (this.running) {
-			if (!silent) new Notice("이미 동기화가 진행 중입니다.");
+			if (!silent) new Notice("StackTube: sync already in progress.");
 			return;
 		}
-		const { apiKey, baseUrl, folder, lastSyncedAt } = this.plugin.settings;
+		const { apiKey, baseUrl, folder, lastSyncedAt, initialRange } = this.plugin.settings;
 		if (!apiKey) {
-			if (!silent) new Notice("API 키를 먼저 설정하세요.");
+			if (!silent) new Notice("StackTube: set your API key in settings first.");
 			return;
 		}
 
@@ -39,17 +48,20 @@ export class SyncEngine {
 		let added = 0;
 		let skipped = 0;
 		let maxFrozen = lastSyncedAt;
+		this.plugin.setStatus?.("StackTube: syncing…");
 
 		try {
 			const api = new StackTubeApi(baseUrl, apiKey);
-			await api.iterateAll(lastSyncedAt || undefined, async (notes: StackTubeNote[]) => {
+			// First-ever sync may be range-limited (settings: initialRange)
+			const since = lastSyncedAt || initialSince(initialRange);
+			await api.iterateAll(since, async (notes: StackTubeNote[]) => {
 				for (const note of notes) {
 					if (!note.video_id) continue;
 					try {
 						const res = await writeNote(this.app, folder, note);
 						if (res.written) added++;
 						else skipped++;
-						// 처리에 성공한 노트만 워터마크 전진 대상
+						// Only successfully processed notes advance the watermark
 						if (!maxFrozen || (note.frozen_at && note.frozen_at > maxFrozen)) {
 							maxFrozen = note.frozen_at;
 						}
@@ -57,23 +69,29 @@ export class SyncEngine {
 						console.error("[StackTube] note write failed", note.video_id, (e as Error).message);
 					}
 				}
-				// 페이지 단위로 워터마크 저장(중간 중단에도 진행 보존)
+				// Persist watermark per page (progress survives interruption)
 				if (maxFrozen && maxFrozen !== this.plugin.settings.lastSyncedAt) {
 					this.plugin.settings.lastSyncedAt = maxFrozen;
 					await this.plugin.saveSettings();
 				}
+				// Running-count progress (large first syncs)
+				this.plugin.setStatus?.(`StackTube: syncing… ${added + skipped}`);
 			});
 
 			if (!silent || added > 0) {
 				new Notice(
 					added > 0
-						? `StackTube: 노트 ${added}개 추가됨${skipped ? ` (${skipped}개 건너뜀)` : ""}`
-						: "StackTube: 새 노트 없음"
+						? `StackTube: ${added} note${added === 1 ? "" : "s"} added${skipped ? ` (${skipped} skipped)` : ""}`
+						: "StackTube: no new notes"
 				);
 			}
+			this.plugin.setStatus?.(
+				`StackTube: last sync ${new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`
+			);
 		} catch (e) {
-			const msg = e instanceof StackTubeApiError ? e.message : "동기화 중 오류가 발생했습니다.";
+			const msg = e instanceof StackTubeApiError ? e.message : "Sync failed.";
 			new Notice(`StackTube: ${msg}`);
+			this.plugin.setStatus?.("StackTube: sync failed");
 		} finally {
 			this.running = false;
 		}
