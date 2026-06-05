@@ -1,7 +1,7 @@
 {
   "id": "stacktube",
   "name": "StackTube",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "minAppVersion": "1.4.0",
   "description": "Sync your StackTube YouTube knowledge notes into your vault. Pulls AI-structured notes for monitored YouTube channels via the StackTube API.",
   "author": "unstackd",
