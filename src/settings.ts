@@ -17,6 +17,7 @@ export interface StackTubeSettings {
 	syncOnStartup: boolean;
 	initialRange: InitialRange; // used only before the first successful sync
 	lastSyncedAt: string; // ISO8601 watermark (max created_at received)
+	captureEnabled: boolean; // Phase 3b — show 📷 Capture buttons in reading view
 }
 
 export const DEFAULT_SETTINGS: StackTubeSettings = {
@@ -27,6 +28,7 @@ export const DEFAULT_SETTINGS: StackTubeSettings = {
 	syncOnStartup: true,
 	initialRange: "all",
 	lastSyncedAt: "",
+	captureEnabled: true,
 };
 
 export class StackTubeSettingTab extends PluginSettingTab {
@@ -119,6 +121,16 @@ export class StackTubeSettingTab extends PluginSettingTab {
 						this.plugin.settings.initialRange = (value as InitialRange) || "all";
 						await this.plugin.saveSettings();
 					})
+			);
+
+		new Setting(containerEl)
+			.setName("Frame capture")
+			.setDesc("Show a 📷 Capture button on frame slots in reading view.")
+			.addToggle((toggle) =>
+				toggle.setValue(this.plugin.settings.captureEnabled).onChange(async (value) => {
+					this.plugin.settings.captureEnabled = value;
+					await this.plugin.saveSettings();
+				})
 			);
 
 		new Setting(containerEl)

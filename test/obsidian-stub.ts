@@ -31,6 +31,7 @@ export interface RequestUrlParam {
 	url: string;
 	method?: string;
 	headers?: Record<string, string>;
+	body?: string | ArrayBuffer;
 	throw?: boolean;
 }
 export interface RequestUrlResponse {
@@ -61,6 +62,11 @@ export function requestUrl(param: RequestUrlParam): Promise<RequestUrlResponse> 
 			}
 		);
 		req.on("error", (e) => reject(e));
+		if (param.body !== undefined) {
+			const chunk =
+				typeof param.body === "string" ? Buffer.from(param.body) : Buffer.from(param.body);
+			req.write(chunk);
+		}
 		req.end();
 	});
 }

@@ -3,7 +3,7 @@ import http from "http";
 import { AddressInfo } from "net";
 import { TFolder } from "./obsidian-stub";
 import { SyncEngine } from "../src/sync";
-import { buildFrontmatter, safeFileName } from "../src/writer";
+import { buildFrontmatter, insertFrameEmbed, safeFileName } from "../src/writer";
 import { StackTubeApi } from "../src/api";
 import type { StackTubeNote } from "../src/api";
 
@@ -94,6 +94,42 @@ function startServer(): Promise<{ url: string; close: () => void }> {
 			}
 			res.writeHead(200, { "content-type": "application/json" });
 			res.end(JSON.stringify({ notes, next_cursor, has_more: hasMore }));
+			return;
+		}
+		const framesMatch = /^\/api\/v1\/notes\/([^/]+)\/frames$/.exec(u.pathname);
+		if (framesMatch && req.method === "POST") {
+			const videoId = decodeURIComponent(framesMatch[1]);
+			const chunks: Buffer[] = [];
+			req.on("data", (c) => chunks.push(c));
+			req.on("end", () => {
+				const bodyLen = chunks.reduce((n, b) => n + b.length, 0);
+				const ct = String(req.headers["content-type"] || "");
+				if (bodyLen === 0 || !/^multipart\/form-data/.test(ct)) {
+					res.writeHead(400, { "content-type": "application/json" });
+					res.end(JSON.stringify({ error: "bad request" }));
+					return;
+				}
+				let status = 201;
+				let body: unknown = { frame_id: "F123", url: "/api/notes/frames/F123", seconds: 42 };
+				if (videoId === "vid-notfound") {
+					status = 404;
+					body = { error: "not found" };
+				} else if (videoId === "vid-plan") {
+					status = 403;
+					body = { code: "plan_required" };
+				} else if (videoId === "vid-toobig") {
+					status = 413;
+					body = { error: "too large" };
+				} else if (videoId === "vid-wrongtype") {
+					status = 415;
+					body = { error: "unsupported" };
+				} else if (videoId === "vid-quota") {
+					status = 429;
+					body = { code: "quota_exceeded" };
+				}
+				res.writeHead(status, { "content-type": "application/json" });
+				res.end(JSON.stringify(body));
+			});
 			return;
 		}
 		res.writeHead(404);
@@ -216,6 +252,62 @@ async function main() {
 	const { plugin: p30 } = makePlugin(srv.url, vault30, "30");
 	await new SyncEngine(p30 as never).sync();
 	ok(vault30.files.size === 0, `initialRange=30d skips old notes (got ${vault30.files.size})`);
+
+	// 8. uploadFrame — 201 + friendly error mapping across the §1 table.
+	{
+		const jpeg = new ArrayBuffer(8);
+		const goodApi = new StackTubeApi(srv.url, VALID_KEY);
+		const r201 = await goodApi.uploadFrame("vid-ok", jpeg, 42);
+		ok(r201.frame_id === "F123" && r201.url === "/api/notes/frames/F123", "uploadFrame 201");
+
+		const badApi = new StackTubeApi(srv.url, "wrong");
+		const catchMsg = async (fn: () => Promise<unknown>): Promise<string> => {
+			try {
+				await fn();
+				return "";
+			} catch (e) {
+				return (e as Error).message;
+			}
+		};
+
+		ok(/Invalid API key/.test(await catchMsg(() => badApi.uploadFrame("vid-ok", jpeg, 42))), "uploadFrame 401 friendly");
+		ok(/Pro or higher/.test(await catchMsg(() => goodApi.uploadFrame("vid-plan", jpeg, 42))), "uploadFrame 403 plan_required");
+		ok(/Sync this note first/.test(await catchMsg(() => goodApi.uploadFrame("vid-notfound", jpeg, 42))), "uploadFrame 404");
+		ok(/Image too large/.test(await catchMsg(() => goodApi.uploadFrame("vid-toobig", jpeg, 42))), "uploadFrame 413");
+		ok(/Unsupported/.test(await catchMsg(() => goodApi.uploadFrame("vid-wrongtype", jpeg, 42))), "uploadFrame 415");
+		ok(/capture limit/.test(await catchMsg(() => goodApi.uploadFrame("vid-quota", jpeg, 42))), "uploadFrame 429 quota_exceeded");
+	}
+
+	// 9. insertFrameEmbed — slot parsing + embed after slot + idempotency.
+	{
+		const src = [
+			"---",
+			'video_id: "vidX"',
+			"---",
+			"",
+			"Body text.",
+			"",
+			"> [!camera] 📷 Frame slot",
+			"> [Watch at 1:42](https://youtu.be/vidX?t=102s)",
+			"",
+			"After.",
+			"",
+		].join("\n");
+		const rel = "attachments/vidX-102.jpg";
+		const r1 = insertFrameEmbed(src, 102, rel);
+		ok(r1.inserted === true, "insertFrameEmbed: inserts on first run");
+		ok(r1.next.includes(`![[${rel}]]`), "insertFrameEmbed: embed line present");
+		const embedIdx = r1.next.indexOf(`![[${rel}]]`);
+		const slotIdx = r1.next.indexOf("Watch at 1:42");
+		const afterIdx = r1.next.indexOf("After.");
+		ok(slotIdx < embedIdx && embedIdx < afterIdx, "insertFrameEmbed: placed after slot, before following content");
+
+		const r2 = insertFrameEmbed(r1.next, 102, rel);
+		ok(r2.inserted === false && r2.next === r1.next, "insertFrameEmbed: idempotent on re-run");
+
+		const r3 = insertFrameEmbed(src, 999, "attachments/vidX-999.jpg");
+		ok(r3.inserted === false && r3.next === src, "insertFrameEmbed: no matching slot → no insert");
+	}
 
 	srv.close();
 

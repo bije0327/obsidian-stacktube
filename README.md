@@ -22,6 +22,20 @@ This plugin is a thin client: all analysis happens on the StackTube server. The 
 
 ---
 
+## Capture a frame (new in v0.2.0)
+
+Notes with a 📷 "frame slot" (a deep-linked callout at a specific timestamp) get a **Capture** button in reading view. Clicking it opens a small player:
+
+1. Watch the moment — skip the ad, seek, or pause however you like.
+2. Press **Capture this frame** when the shot is right.
+3. Confirm the preview, then **Save**.
+
+The image is saved to `<folder>/attachments/<video_id>-<seconds>.jpg` and embedded in the note right after the slot. If you have an API key, the same frame is uploaded to the StackTube web copy of the note (Pro or higher). Re‑capturing the same slot won't duplicate the embed.
+
+You can hide the Capture buttons from **Settings → StackTube → Frame capture**.
+
+---
+
 ## Requirements
 
 - A [StackTube](https://stacktube.io) account with at least one monitored channel and some analyzed videos.

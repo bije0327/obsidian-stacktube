@@ -43,6 +43,51 @@ function friendlyError(status: number): string {
 	return `Request failed (${status}).`;
 }
 
+function uploadFriendlyError(status: number, code?: string): string {
+	if (status === 401) return "Invalid API key. Check your key in the StackTube settings.";
+	if (status === 403 && code === "plan_required") return "Frame capture is available on Pro or higher.";
+	if (status === 403) return "This action is not allowed on your plan.";
+	if (status === 404) return "Sync this note first — the server doesn't have it yet.";
+	if (status === 413) return "Image too large. Try again with lower quality.";
+	if (status === 415) return "Unsupported image type.";
+	if (status === 429 && code === "quota_exceeded") return "You've hit this note's capture limit.";
+	if (status === 429) return "Too many requests. Try again in a moment.";
+	if (status >= 500) return `Server error (${status}).`;
+	if (status === 0) return "Network request failed.";
+	return `Upload failed (${status}).`;
+}
+
+/**
+ * Build a minimal multipart/form-data body containing `image` (JPEG bytes) and
+ * `seconds` (string). Returns the concatenated ArrayBuffer + boundary token.
+ */
+function buildFramesMultipart(jpeg: ArrayBuffer, seconds: number): { boundary: string; body: ArrayBuffer } {
+	const boundary = "----stacktube" + Math.random().toString(36).slice(2) + Date.now().toString(36);
+	const enc = new TextEncoder();
+	const CRLF = "\r\n";
+	const imagePart = enc.encode(
+		`--${boundary}${CRLF}` +
+			`Content-Disposition: form-data; name="image"; filename="frame.jpg"${CRLF}` +
+			`Content-Type: image/jpeg${CRLF}${CRLF}`
+	);
+	const secondsPart = enc.encode(
+		`${CRLF}--${boundary}${CRLF}` +
+			`Content-Disposition: form-data; name="seconds"${CRLF}${CRLF}` +
+			`${seconds}${CRLF}` +
+			`--${boundary}--${CRLF}`
+	);
+	const jpegBytes = new Uint8Array(jpeg);
+	const total = imagePart.byteLength + jpegBytes.byteLength + secondsPart.byteLength;
+	const buf = new Uint8Array(total);
+	let off = 0;
+	buf.set(imagePart, off);
+	off += imagePart.byteLength;
+	buf.set(jpegBytes, off);
+	off += jpegBytes.byteLength;
+	buf.set(secondsPart, off);
+	return { boundary, body: buf.buffer };
+}
+
 export class StackTubeApi {
 	private baseUrl: string;
 	private apiKey: string;
@@ -111,5 +156,49 @@ export class StackTubeApi {
 			if (!page.has_more || !page.next_cursor) return;
 			cursor = page.next_cursor;
 		}
+	}
+
+	/**
+	 * Upload a captured frame (JPEG bytes) for a video note.
+	 * POST /api/v1/notes/{video_id}/frames as multipart/form-data.
+	 * Returns { frame_id, url }. Throws StackTubeApiError with a friendly message.
+	 */
+	async uploadFrame(
+		videoId: string,
+		jpeg: ArrayBuffer,
+		seconds: number
+	): Promise<{ frame_id: string; url: string; seconds: number }> {
+		if (!videoId) throw new StackTubeApiError(uploadFriendlyError(400), 400);
+		const { boundary, body } = buildFramesMultipart(jpeg, seconds);
+		let res: RequestUrlResponse;
+		try {
+			res = await requestUrl({
+				url: `${this.baseUrl}/api/v1/notes/${encodeURIComponent(videoId)}/frames`,
+				method: "POST",
+				headers: {
+					Authorization: `Bearer ${this.apiKey}`,
+					Accept: "application/json",
+					"Content-Type": `multipart/form-data; boundary=${boundary}`,
+				},
+				body,
+				throw: false,
+			});
+		} catch {
+			// Network/timeout — generalise to status 0 (never leak key material via error string).
+			throw new StackTubeApiError(uploadFriendlyError(0), 0);
+		}
+		if (res.status === 201) {
+			const j = (res.json ?? {}) as { frame_id?: string; url?: string; seconds?: number };
+			if (!j.frame_id || !j.url) {
+				throw new StackTubeApiError("Upload succeeded but response was malformed.", res.status);
+			}
+			return { frame_id: j.frame_id, url: j.url, seconds: typeof j.seconds === "number" ? j.seconds : seconds };
+		}
+		const errCode =
+			res.json && typeof res.json === "object"
+				? ((res.json as { code?: string; error?: string }).code ??
+					(res.json as { code?: string; error?: string }).error)
+				: undefined;
+		throw new StackTubeApiError(uploadFriendlyError(res.status, errCode), res.status);
 	}
 }
