@@ -93,7 +93,8 @@ export default class StackTubePlugin extends Plugin {
 	}
 
 	async loadSettings(): Promise<void> {
-		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+		const data = (await this.loadData()) as Partial<StackTubeSettings> | null;
+		this.settings = Object.assign({}, DEFAULT_SETTINGS, data ?? {});
 	}
 
 	async saveSettings(): Promise<void> {
@@ -122,7 +123,8 @@ export default class StackTubePlugin extends Plugin {
 			const m = /[?&]t=(\d+)s?\b/.exec(link.getAttribute("href") || "");
 			if (!m) return;
 			const seconds = Number(m[1]);
-			const btn = document.createElement("button");
+			// 노트가 팝아웃 창에 렌더될 수 있으므로 해당 요소의 document 를 사용.
+			const btn = (bq.ownerDocument ?? activeDocument).createElement("button");
 			btn.className = "stacktube-capture-btn";
 			btn.setAttribute("type", "button");
 			btn.textContent = "📷 Capture";

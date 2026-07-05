@@ -108,7 +108,7 @@ async function isMostlyBlack(jpeg: ArrayBuffer): Promise<boolean> {
 			img.onerror = () => rej(new Error("decode failed"));
 			img.src = url;
 		});
-		const canvas = document.createElement("canvas");
+		const canvas = activeDocument.createElement("canvas");
 		canvas.width = 32;
 		canvas.height = 18;
 		const ctx = canvas.getContext("2d");
@@ -176,14 +176,14 @@ export class CaptureModal extends Modal {
 		// Stage sizing (W×H) lives in styles.css (.stacktube-webview-wrap).
 		const wrap = stage.createDiv({ cls: "stacktube-webview-wrap" });
 
-		const wv = document.createElement("webview") as unknown as WebviewEl;
+		const wv = activeDocument.createElement("webview") as unknown as WebviewEl;
 		wv.setAttribute("src", `https://www.youtube.com/watch?v=${this.opts.videoId}&t=${this.opts.seconds}s`);
 		wv.setAttribute("allowpopups", "false");
 		// Explicit fill via .stacktube-capture-webview — do NOT rely on 100% alone
 		// (webview render height collapsed to ~150px in spike v1–v3 when only
 		// percent sizing was used).
 		wv.setAttribute("class", "stacktube-capture-webview");
-		wrap.appendChild(wv as unknown as Node);
+		wrap.appendChild(wv);
 		this.wv = wv;
 
 		const controls = stage.createDiv({ cls: "stacktube-capture-controls" });

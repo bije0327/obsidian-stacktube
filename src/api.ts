@@ -109,7 +109,7 @@ export class StackTubeApi {
 				},
 				throw: false,
 			});
-		} catch (e) {
+		} catch {
 			// 네트워크/타임아웃 — 메시지에 키가 들어가지 않도록 status 0 으로 일반화
 			throw new StackTubeApiError(friendlyError(0), 0);
 		}

@@ -38,12 +38,10 @@
       (README 는 GitHub master 를 스캔 시점에 다시 긁어감. 로그아웃 CDN 캐시는 잠시 옛 버전일 수 있음)
 - 참고: 사전 검증하고 싶으면 대시보드 **Review branch** 로 브랜치 리뷰 가능
 
-## 4. 알려진 비차단 지적 (백로그 — 다음 릴리스에 묶어 처리)
+## 4. 알려진 비차단 지적 (백로그)
 
-- Warning: `activeDocument` 대신 `document` 사용 — capture-modal.ts:111·179, main.ts:125
-- Warning: 불필요한 type assertion — capture-modal.ts:186
-- Warning: unsafe `any` 대입 — main.ts:96
-- Warning: 정규식 제어문자 `\x00`,`\x1f` — writer.ts:13
-- Recommendation: 미사용 `e` — api.ts:112
+- ~~Warning 4종 + Rec 1 (activeDocument·assertion·unsafe any·제어문자 정규식·미사용 e)~~ → **0.2.2 에서 전부 해소**.
+  주의: `PLAYER_STATE_JS` 등 웹뷰 **게스트 페이지에서 실행되는 JS 문자열 안의 `document` 는 그대로 둘 것**(Obsidian 문서가 아니라 YouTube 페이지의 document).
+- Disclosures 3건은 수정 대상 아님 — "network request calls"는 sync 플러그인 고지, "scan not available" 2건은 Obsidian 측 인프라.
 - README 스테일 문구: "(recommended, once approved)" 제거 / "연결 테스트 / Test connection" 영문화
 - 기존 백로그: v0.1.1 트랙(403 친화 메시지 + 새 심볼 아이콘), ko/ja UI, 채널 필터
