@@ -1,6 +1,6 @@
 {
   "name": "obsidian-stacktube",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Sync StackTube YouTube knowledge notes into your Obsidian vault.",
   "main": "main.js",
   "scripts": {

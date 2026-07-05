@@ -147,8 +147,8 @@ export class CaptureModal extends Modal {
 	}
 
 	onOpen(): void {
-		this.modalEl.style.width = `${W + 48}px`;
-		this.modalEl.style.maxWidth = "none";
+		// Sizing lives in styles.css (.stacktube-capture-modal = W + 48px).
+		this.modalEl.addClass("stacktube-capture-modal");
 		this.contentEl.empty();
 		this.titleEl.setText("Capture frame");
 		this.buildStage();
@@ -167,47 +167,28 @@ export class CaptureModal extends Modal {
 		const stage = this.contentEl.createDiv({ cls: "stacktube-capture-stage" });
 		this.stageEl = stage;
 
-		const hint = stage.createEl("p", {
+		stage.createEl("p", {
+			cls: "stacktube-capture-hint",
 			text:
 				"Free YouTube may show an ad first. Skip the ad and pause on the frame you want, then press Capture.",
 		});
-		hint.style.color = "var(--text-muted)";
-		hint.style.fontSize = "12px";
-		hint.style.margin = "0 0 8px 0";
 
+		// Stage sizing (W×H) lives in styles.css (.stacktube-webview-wrap).
 		const wrap = stage.createDiv({ cls: "stacktube-webview-wrap" });
-		wrap.style.width = `${W}px`;
-		wrap.style.height = `${H}px`;
-		wrap.style.display = "flex";
-		wrap.style.overflow = "hidden";
-		wrap.style.background = "#000";
-		wrap.style.borderRadius = "4px";
 
 		const wv = document.createElement("webview") as unknown as WebviewEl;
 		wv.setAttribute("src", `https://www.youtube.com/watch?v=${this.opts.videoId}&t=${this.opts.seconds}s`);
 		wv.setAttribute("allowpopups", "false");
-		// Explicit fill — do NOT rely on 100% alone (webview render height collapsed
-		// to ~150px in spike v1–v3 when only percent sizing was used).
-		wv.style.flex = "1 1 auto";
-		wv.style.minHeight = "0";
-		wv.style.width = "100%";
-		wv.style.height = "100%";
-		wv.style.border = "0";
+		// Explicit fill via .stacktube-capture-webview — do NOT rely on 100% alone
+		// (webview render height collapsed to ~150px in spike v1–v3 when only
+		// percent sizing was used).
+		wv.setAttribute("class", "stacktube-capture-webview");
 		wrap.appendChild(wv as unknown as Node);
 		this.wv = wv;
 
 		const controls = stage.createDiv({ cls: "stacktube-capture-controls" });
-		controls.style.display = "flex";
-		controls.style.alignItems = "center";
-		controls.style.justifyContent = "space-between";
-		controls.style.marginTop = "10px";
-		controls.style.gap = "12px";
 
-		const adLabel = controls.createEl("span", { text: "" });
-		adLabel.style.color = "var(--text-muted)";
-		adLabel.style.fontSize = "12px";
-		adLabel.style.visibility = "hidden";
-		adLabel.textContent = "Ad is playing";
+		const adLabel = controls.createEl("span", { cls: "stacktube-ad-label", text: "Ad is playing" });
 		this.adLabel = adLabel;
 
 		const captureBtn = controls.createEl("button", { text: "Capture this frame" });
@@ -228,7 +209,7 @@ export class CaptureModal extends Modal {
 			try {
 				const s = (await wv.executeJavaScript(PLAYER_STATE_JS, false)) as PlayerState;
 				if (s && s.hasPlayer) {
-					label.style.visibility = s.ad ? "visible" : "hidden";
+					label.toggleClass("stacktube-visible", s.ad);
 				}
 			} catch {
 				// non-fatal — label stays as-is
@@ -350,20 +331,12 @@ export class CaptureModal extends Modal {
 		if (this.previewObjectUrl) URL.revokeObjectURL(this.previewObjectUrl);
 		this.previewObjectUrl = URL.createObjectURL(blob);
 
-		const preview = this.stageEl.createEl("img");
+		const preview = this.stageEl.createEl("img", { cls: "stacktube-capture-preview" });
 		preview.src = this.previewObjectUrl;
-		preview.style.maxWidth = `${W}px`;
-		preview.style.maxHeight = `${H}px`;
-		preview.style.display = "block";
-		preview.style.borderRadius = "4px";
-		preview.style.background = "#000";
 
-		const question = this.stageEl.createEl("p", { text: "Save this frame?" });
-		question.style.margin = "10px 0";
+		this.stageEl.createEl("p", { cls: "stacktube-capture-question", text: "Save this frame?" });
 
-		const row = this.stageEl.createDiv();
-		row.style.display = "flex";
-		row.style.gap = "8px";
+		const row = this.stageEl.createDiv({ cls: "stacktube-capture-row" });
 
 		const redo = row.createEl("button", { text: "Retake" });
 		redo.onclick = () => {

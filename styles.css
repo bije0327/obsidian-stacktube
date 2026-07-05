@@ -6,3 +6,66 @@
 }
 .stacktube-test-result-ok { color: var(--text-success); }
 .stacktube-test-result-err { color: var(--text-error); }
+
+/* ─── Frame capture (v0.2.x) ─────────────────────────────────────────────
+ * Stage size is fixed at 960×540 (see W/H in src/capture-modal.ts).
+ * The modal width is stage + 48px padding. Keep these in sync. */
+.stacktube-capture-modal {
+  width: 1008px; /* W + 48 */
+  max-width: none;
+}
+.stacktube-capture-hint {
+  color: var(--text-muted);
+  font-size: 12px;
+  margin: 0 0 8px 0;
+}
+.stacktube-webview-wrap {
+  width: 960px; /* W */
+  height: 540px; /* H */
+  display: flex;
+  overflow: hidden;
+  background: #000;
+  border-radius: 4px;
+}
+/* Explicit fill — do NOT rely on 100% alone (webview render height collapsed
+ * to ~150px in spike v1–v3 when only percent sizing was used). */
+.stacktube-capture-webview {
+  flex: 1 1 auto;
+  min-height: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+.stacktube-capture-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 10px;
+  gap: 12px;
+}
+.stacktube-ad-label {
+  color: var(--text-muted);
+  font-size: 12px;
+  visibility: hidden;
+}
+.stacktube-ad-label.stacktube-visible {
+  visibility: visible;
+}
+.stacktube-capture-preview {
+  max-width: 960px; /* W */
+  max-height: 540px; /* H */
+  display: block;
+  border-radius: 4px;
+  background: #000;
+}
+.stacktube-capture-question {
+  margin: 10px 0;
+}
+.stacktube-capture-row {
+  display: flex;
+  gap: 8px;
+}
+.stacktube-capture-btn {
+  margin-left: 8px;
+  cursor: pointer;
+}

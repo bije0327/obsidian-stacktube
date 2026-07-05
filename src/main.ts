@@ -126,8 +126,6 @@ export default class StackTubePlugin extends Plugin {
 			btn.className = "stacktube-capture-btn";
 			btn.setAttribute("type", "button");
 			btn.textContent = "📷 Capture";
-			btn.style.marginLeft = "8px";
-			btn.style.cursor = "pointer";
 			btn.addEventListener("click", (e) => {
 				e.preventDefault();
 				this.openCaptureFlow(videoId, seconds, sourcePath);
