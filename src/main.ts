@@ -5,7 +5,9 @@
 import { MarkdownPostProcessorContext, Notice, Plugin } from "obsidian";
 import { StackTubeSettings, DEFAULT_SETTINGS, StackTubeSettingTab } from "./settings";
 import { SyncEngine } from "./sync";
-import { StackTubeApi, StackTubeApiError } from "./api";
+// [Option B seam] server sync client for captured frames. Re-enable together with
+// the api.uploadFrame(...) call in openCaptureFlow below.
+// import { StackTubeApi, StackTubeApiError } from "./api";
 import { CaptureModal } from "./capture-modal";
 import { writeCapturedFrame } from "./writer";
 
@@ -139,27 +141,32 @@ export default class StackTubePlugin extends Plugin {
 			videoId,
 			seconds,
 			onCaptured: async (jpeg) => {
-				const { folder, apiKey, baseUrl } = this.settings;
+				const { folder } = this.settings;
 				try {
 					await writeCapturedFrame(this.app, { folder, notePath, videoId, seconds, jpeg });
 				} catch (e) {
 					new Notice(`StackTube: local embed failed — ${(e as Error).message}`);
 					return;
 				}
-				if (!apiKey) {
-					new Notice("StackTube: saved to this note. Add your API key to sync to the web copy.");
-					return;
-				}
-				try {
-					const api = new StackTubeApi(baseUrl, apiKey);
-					await api.uploadFrame(videoId, jpeg, seconds);
-					new Notice(
-						"StackTube: saved to this note and the web. Drive/Dropbox copies: press 're-sync' on the web."
-					);
-				} catch (e) {
-					const msg = e instanceof StackTubeApiError ? e.message : (e as Error).message;
-					new Notice(`StackTube: saved locally; web sync failed — ${msg}`);
-				}
+				// Option A (vault-only): the captured frame lives only in your vault
+				// (local attachment + note embed). We never upload it. Privacy-first
+				// default until Option B server sync ships.
+				new Notice(
+					"StackTube: saved to your vault only — we never upload it. (내 보관함에만 저장 · 업로드하지 않습니다)"
+				);
+
+				// [Option B] 서버 동기화는 CSAM/DMCA + FRAME_UPLOAD_ENABLED 준비 후 재활성 (회원 100~500명 재평가)
+				// const { apiKey, baseUrl } = this.settings;
+				// if (apiKey) {
+				// 	try {
+				// 		const api = new StackTubeApi(baseUrl, apiKey);
+				// 		await api.uploadFrame(videoId, jpeg, seconds);
+				// 		new Notice("StackTube: saved to this note and the web copy.");
+				// 	} catch (e) {
+				// 		const msg = e instanceof StackTubeApiError ? e.message : (e as Error).message;
+				// 		new Notice(`StackTube: saved locally; web sync failed — ${msg}`);
+				// 	}
+				// }
 			},
 		}).open();
 	}
