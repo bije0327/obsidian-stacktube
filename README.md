@@ -30,7 +30,9 @@ Notes with a 📷 "frame slot" (a deep-linked callout at a specific timestamp) g
 2. Press **Capture this frame** when the shot is right.
 3. Confirm the preview, then **Save**.
 
-The image is saved to `<folder>/attachments/<video_id>-<seconds>.jpg` and embedded in the note right after the slot. If you have an API key, the same frame is uploaded to the StackTube web copy of the note (Pro or higher). Re‑capturing the same slot won't duplicate the embed.
+The image is saved to `<folder>/attachments/<video_id>-<seconds>.jpg` and embedded in the note right after the slot. Re‑capturing the same slot won't duplicate the embed.
+
+**Captured frames are saved to your vault only — never uploaded to our servers.** Server sync of captured frames is planned for a later release (opt-in).
 
 You can hide the Capture buttons from **Settings → StackTube → Frame capture**.
 
@@ -75,7 +77,9 @@ Notes land in `<folder>/<channel>/<YYYY-MM-DD>-<title>.md`.
 
 ## Privacy & data ownership
 
-The plugin talks only to the server URL you configure (StackTube by default), authenticated with your API key. It writes plain Markdown files into your vault — readable, portable, and yours. Your API key is stored locally in the plugin's `data.json` and is never logged.
+The plugin talks only to the server URL you configure (StackTube by default), authenticated with your API key — to pull your analyzed notes. It writes plain Markdown files into your vault — readable, portable, and yours. Your API key is stored locally in the plugin's `data.json` and is never logged.
+
+Captured frames are saved to your vault only — never uploaded to our servers.
 
 ---
 
